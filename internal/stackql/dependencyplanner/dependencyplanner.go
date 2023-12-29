@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stackql/go-openapistackql/openapistackql"
-	"github.com/stackql/go-openapistackql/pkg/media"
+	"github.com/stackql/any-sdk/anysdk"
+	"github.com/stackql/any-sdk/pkg/media"
 	"github.com/stackql/stackql-parser/go/vt/sqlparser"
 	"github.com/stackql/stackql/internal/stackql/astanalysis/annotatedast"
 	"github.com/stackql/stackql/internal/stackql/astindirect"
@@ -53,14 +53,18 @@ type standardDependencyPlanner struct {
 	tccSetAheadOfTime  bool
 
 	//
-	bldr          primitivebuilder.Builder
-	selCtx        drm.PreparedStatementCtx
-	defaultStream streaming.MapStream
-	annMap        taxonomy.AnnotationCtxMap
+	bldr                 primitivebuilder.Builder
+	selCtx               drm.PreparedStatementCtx
+	defaultStream        streaming.MapStream
+	annMap               taxonomy.AnnotationCtxMap
+	equivalencyGroupTCCs map[int64]internaldto.TxnControlCounters
 	//
 	prepStmtOffset int
 	//
 	isElideRead bool
+	//
+	dataflowToEdges map[int][]int
+	nodeIDIdxMap    map[int64]int
 }
 
 func NewStandardDependencyPlanner(
@@ -79,19 +83,22 @@ func NewStandardDependencyPlanner(
 		return nil, fmt.Errorf("violation of standardDependencyPlanner invariant: txn counter cannot be nil")
 	}
 	return &standardDependencyPlanner{
-		annotatedAST:       annotatedAST,
-		handlerCtx:         handlerCtx,
-		dataflowCollection: dataflowCollection,
-		colRefs:            colRefs,
-		rewrittenWhere:     rewrittenWhere,
-		sqlStatement:       sqlStatement,
-		tblz:               tblz,
-		primitiveComposer:  primitiveComposer,
-		discoGenIDs:        make(map[sqlparser.SQLNode]int),
-		defaultStream:      streaming.NewStandardMapStream(),
-		annMap:             make(taxonomy.AnnotationCtxMap),
-		tcc:                tcc,
-		tccSetAheadOfTime:  tccSetAheadOfTime,
+		annotatedAST:         annotatedAST,
+		handlerCtx:           handlerCtx,
+		dataflowCollection:   dataflowCollection,
+		colRefs:              colRefs,
+		rewrittenWhere:       rewrittenWhere,
+		sqlStatement:         sqlStatement,
+		tblz:                 tblz,
+		primitiveComposer:    primitiveComposer,
+		discoGenIDs:          make(map[sqlparser.SQLNode]int),
+		defaultStream:        streaming.NewStandardMapStream(),
+		annMap:               make(taxonomy.AnnotationCtxMap),
+		tcc:                  tcc,
+		tccSetAheadOfTime:    tccSetAheadOfTime,
+		equivalencyGroupTCCs: make(map[int64]internaldto.TxnControlCounters),
+		dataflowToEdges:      make(map[int][]int),
+		nodeIDIdxMap:         make(map[int64]int),
 	}, nil
 }
 
@@ -125,7 +132,8 @@ func (dp *standardDependencyPlanner) Plan() error {
 	}
 	// TODO: lift this restriction once all traversal algorithms are adequate
 	weaklyConnectedComponentCount := 0
-	for _, unit := range units {
+	for _, u := range units {
+		unit := u
 		switch unit := unit.(type) {
 		case dataflow.Vertex:
 			inDegree := dp.dataflowCollection.InDegree(unit)
@@ -148,15 +156,17 @@ func (dp *standardDependencyPlanner) Plan() error {
 				continue
 			}
 			dp.annMap[tableExpr] = annotation
-			insPsc, _, insErr := dp.processOrphan(tableExpr, annotation, dp.defaultStream)
+			connectorStream := streaming.NewStandardMapStream()
+			insPsc, _, insErr := dp.processOrphan(tableExpr, annotation, connectorStream, unit)
 			if insErr != nil {
 				return insErr
 			}
 			stream := streaming.NewNopMapStream()
-			err = dp.orchestrate(annotation, insPsc, dp.defaultStream, stream)
-			if err != nil {
-				return err
+			idx, orcErr := dp.orchestrate(unit.GetEquivalencyGroup(), annotation, insPsc, connectorStream, stream)
+			if orcErr != nil {
+				return orcErr
 			}
+			dp.nodeIDIdxMap[unit.ID()] = idx
 		case dataflow.WeaklyConnectedComponent:
 			weaklyConnectedComponentCount++
 			orderedNodes, oErr := unit.GetOrderedNodes()
@@ -189,7 +199,8 @@ func (dp *standardDependencyPlanner) Plan() error {
 					//nolint:nestif // TODO: refactor
 					if e.From().ID() == n.ID() {
 						//
-						insPsc, tcc, insErr := dp.processOrphan(tableExpr, annotation, dp.defaultStream)
+						connectorStream := streaming.NewStandardMapStream()
+						insPsc, tcc, insErr := dp.processOrphan(tableExpr, annotation, connectorStream, n)
 						if insErr != nil {
 							return insErr
 						}
@@ -200,23 +211,38 @@ func (dp *standardDependencyPlanner) Plan() error {
 						if streamErr != nil {
 							return streamErr
 						}
-						err = dp.orchestrate(annotation, insPsc, dp.defaultStream, stream)
-						if err != nil {
-							return err
+						fromIdx, fromErr := dp.orchestrate(-1, annotation, insPsc, connectorStream, stream)
+						if fromErr != nil {
+							return fromErr
 						}
+						dp.nodeIDIdxMap[e.From().ID()] = fromIdx
 						//
 						dp.annMap[toTableExpr] = toAnnotation
 						toAnnotation.SetDynamic()
-						insPsc, _, err = dp.processOrphan(toTableExpr, toAnnotation, stream)
+						insPsc, _, err = dp.processOrphan(toTableExpr, toAnnotation, stream, toNode)
 						if err != nil {
 							return err
 						}
-						err = dp.orchestrate(toAnnotation, insPsc, stream, streaming.NewNopMapStream())
-						if err != nil {
-							return err
+						toIdx, toErr := dp.orchestrate(-1, toAnnotation, insPsc, stream, streaming.NewNopMapStream())
+						if toErr != nil {
+							return toErr
 						}
+						dp.nodeIDIdxMap[e.To().ID()] = toIdx
 						idsVisited[toNode.ID()] = struct{}{}
+						dp.dataflowToEdges[toIdx] = append(dp.dataflowToEdges[toIdx], fromIdx)
 					}
+				}
+				// another pass for AOT dataflows; to wit, on clauses
+				for _, e := range edges {
+					toIdx, toFound := dp.nodeIDIdxMap[e.To().ID()]
+					if !toFound {
+						return fmt.Errorf("unknown to node index")
+					}
+					fromIdx, fromFound := dp.nodeIDIdxMap[e.From().ID()]
+					if !fromFound {
+						return fmt.Errorf("unknown from node index")
+					}
+					dp.dataflowToEdges[toIdx] = append(dp.dataflowToEdges[toIdx], fromIdx)
 				}
 			}
 		default:
@@ -296,6 +322,7 @@ func (dp *standardDependencyPlanner) Plan() error {
 		dp.primitiveComposer.GetGraphHolder(),
 		dp.execSlice,
 		selBld,
+		dp.dataflowToEdges,
 	)
 	dp.selCtx = selCtx
 	return nil
@@ -305,13 +332,14 @@ func (dp *standardDependencyPlanner) processOrphan(
 	sqlNode sqlparser.SQLNode,
 	annotationCtx taxonomy.AnnotationCtx,
 	inStream streaming.MapStream,
+	vertex dataflow.Vertex,
 ) (drm.PreparedStatementCtx, internaldto.TxnControlCounters, error) {
-	anTab, tcc, err := dp.processAcquire(sqlNode, annotationCtx, inStream)
+	anTab, tcc, err := dp.processAcquire(sqlNode, annotationCtx, inStream, vertex)
 	if err != nil {
 		return nil, nil, err
 	}
 	_, isSQLDataSource := annotationCtx.GetTableMeta().GetSQLDataSource()
-	var opStore openapistackql.OperationStore
+	var opStore anysdk.OperationStore
 	if !isSQLDataSource {
 		opStore, err = annotationCtx.GetTableMeta().GetMethod()
 		if err != nil {
@@ -334,18 +362,29 @@ func (dp *standardDependencyPlanner) processOrphan(
 }
 
 func (dp *standardDependencyPlanner) orchestrate(
+	equivalencyGroupID int64,
 	annotationCtx taxonomy.AnnotationCtx,
 	insPsc drm.PreparedStatementCtx,
 	inStream streaming.MapStream,
 	outStream streaming.MapStream,
-) error {
+) (int, error) {
 	rc, err := tableinsertioncontainer.NewTableInsertionContainer(
 		annotationCtx.GetTableMeta(),
 		dp.handlerCtx.GetSQLEngine(),
 		dp.handlerCtx.GetTxnCounterMgr(),
 	)
+	if equivalencyGroupID > 0 {
+		tcc, ok := dp.equivalencyGroupTCCs[equivalencyGroupID]
+		if ok {
+			tn, _ := rc.GetTableTxnCounters()
+			setErr := rc.SetTableTxnCounters(tn, tcc)
+			if setErr != nil {
+				return -1, setErr
+			}
+		}
+	}
 	if err != nil {
-		return err
+		return -1, err
 	}
 	sqlDataSource, isSQLDataSource := annotationCtx.GetTableMeta().GetSQLDataSource()
 	var builder primitivebuilder.Builder
@@ -361,7 +400,7 @@ func (dp *standardDependencyPlanner) orchestrate(
 		projectionStr := strings.Join(colNames, ", ")
 		_, tErr := dp.handlerCtx.GetDrmConfig().GetCurrentTable(annotationCtx.GetHIDs())
 		if tErr != nil {
-			return tErr
+			return -1, tErr
 		}
 		tableName := annotationCtx.GetHIDs().GetSQLDataSourceTableName()
 		// targetTableName := annotationCtx.GetHIDs().GetStackQLTableName()
@@ -390,15 +429,17 @@ func (dp *standardDependencyPlanner) orchestrate(
 		)
 	}
 	dp.execSlice = append(dp.execSlice, builder)
+	idx := len(dp.execSlice) - 1
 	dp.tableSlice = append(dp.tableSlice, rc)
 	err = annotationCtx.Prepare(dp.handlerCtx, inStream)
-	return err
+	return idx, err
 }
 
 func (dp *standardDependencyPlanner) processAcquire(
 	sqlNode sqlparser.SQLNode,
 	annotationCtx taxonomy.AnnotationCtx,
 	stream streaming.MapStream, //nolint:unparam,revive // TODO: remove this
+	vertex dataflow.Vertex,
 ) (util.AnnotatedTabulation, internaldto.TxnControlCounters, error) {
 	inputTableName, err := annotationCtx.GetInputTableName()
 	inputProviderString := annotationCtx.GetHIDs().GetProviderStr()
@@ -465,6 +506,17 @@ func (dp *standardDependencyPlanner) processAcquire(
 		return util.NewAnnotatedTabulation(nil, nil, "", ""), nil, fmt.Errorf("nil counters disallowed in dependency planner")
 	}
 	if !dp.tccSetAheadOfTime {
+		if vertex.GetEquivalencyGroup() > 0 {
+			tcc, ok := dp.equivalencyGroupTCCs[vertex.GetEquivalencyGroup()]
+			if ok {
+				dp.tcc = tcc.Clone()
+			} else {
+				dp.tcc = dp.tcc.CloneAndIncrementInsertID()
+				dp.secondaryTccs = append(dp.secondaryTccs, dp.tcc)
+				dp.equivalencyGroupTCCs[vertex.GetEquivalencyGroup()] = dp.tcc
+			}
+			return anTab, dp.tcc, nil
+		}
 		dp.tcc = dp.tcc.CloneAndIncrementInsertID()
 	}
 	dp.secondaryTccs = append(dp.secondaryTccs, dp.tcc)

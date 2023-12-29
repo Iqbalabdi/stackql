@@ -359,12 +359,12 @@ STACKQL_PG_CLIENT_KEY_PATH_UNIX   :str = get_unix_path(STACKQL_PG_CLIENT_KEY_PAT
 STACKQL_PG_CLIENT_CERT_PATH_UNIX  :str = get_unix_path(STACKQL_PG_CLIENT_CERT_PATH)
 STACKQL_PG_RUBBISH_KEY_PATH  :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "test", "server", "mtls", "credentials", "pg_rubbish_key.pem"))
 STACKQL_PG_RUBBISH_CERT_PATH :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "test", "server", "mtls", "credentials", "pg_rubbish_cert.pem"))
-STACKQL_PG_SERVER_KEY_PATH_DOCKER   :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "vol", "srv", "credentials", "pg_server_key.pem"))
-STACKQL_PG_SERVER_CERT_PATH_DOCKER  :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "vol", "srv", "credentials", "pg_server_cert.pem"))
-STACKQL_PG_CLIENT_KEY_PATH_DOCKER   :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "vol", "srv", "credentials", "pg_client_key.pem"))
-STACKQL_PG_CLIENT_CERT_PATH_DOCKER  :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "vol", "srv", "credentials", "pg_client_cert.pem"))
-STACKQL_PG_RUBBISH_KEY_PATH_DOCKER  :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "vol", "srv", "credentials", "pg_rubbish_key.pem"))
-STACKQL_PG_RUBBISH_CERT_PATH_DOCKER :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "vol", "srv", "credentials", "pg_rubbish_cert.pem"))
+STACKQL_PG_SERVER_KEY_PATH_DOCKER   :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "cicd", "vol", "srv", "credentials", "pg_server_key.pem"))
+STACKQL_PG_SERVER_CERT_PATH_DOCKER  :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "cicd", "vol", "srv", "credentials", "pg_server_cert.pem"))
+STACKQL_PG_CLIENT_KEY_PATH_DOCKER   :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "cicd", "vol", "srv", "credentials", "pg_client_key.pem"))
+STACKQL_PG_CLIENT_CERT_PATH_DOCKER  :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "cicd", "vol", "srv", "credentials", "pg_client_cert.pem"))
+STACKQL_PG_RUBBISH_KEY_PATH_DOCKER  :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "cicd", "vol", "srv", "credentials", "pg_rubbish_key.pem"))
+STACKQL_PG_RUBBISH_CERT_PATH_DOCKER :str = os.path.abspath(os.path.join(REPOSITORY_ROOT, "cicd", "vol", "srv", "credentials", "pg_rubbish_cert.pem"))
 
 def get_sql_dialect_from_sql_backend_str(sql_backend_str :str) -> str:
   if sql_backend_str == 'postgres_tcp':
@@ -488,6 +488,9 @@ MOCKSERVER_PORT_GOOGLE = 1080
 JSON_INIT_FILE_PATH_GOOGLEADMIN = os.path.join(REPOSITORY_ROOT, 'test', 'mockserver', 'expectations', 'static-google-admin-expectations.json')
 MOCKSERVER_PORT_GOOGLEADMIN = 1098
 
+JSON_INIT_FILE_PATH_STACKQL_AUTH_TESTING = os.path.join(REPOSITORY_ROOT, 'test', 'mockserver', 'expectations', 'static-auth-testing-expectations.json')
+MOCKSERVER_PORT_STACKQL_AUTH_TESTING = 1170
+
 JSON_INIT_FILE_PATH_OKTA = os.path.join(REPOSITORY_ROOT, 'test', 'mockserver', 'expectations', 'static-okta-expectations.json')
 MOCKSERVER_PORT_OKTA = 1090
 
@@ -595,7 +598,6 @@ SELECT_AWS_EC2_VPN_GATEWAYS_NULL = "select vpnGatewayId, amazonSideAsn from aws.
 SELECT_AWS_VOLUMES = "select volumeId, encrypted, size from aws.ec2.volumes where region = 'ap-southeast-1' order by volumeId asc;"
 SELECT_AWS_IAM_USERS_ASC = "select UserName, Arn from aws.iam.users WHERE region = 'us-east-1' order by UserName ASC;"
 CREATE_AWS_VOLUME = """insert into aws.ec2.volumes(AvailabilityZone, Size, region, TagSpecification) select 'ap-southeast-1a', JSON(10), 'ap-southeast-1', JSON('[ { "ResourceType": "volume", "Tag": [ { "Key": "stack", "Value": "production" }, { "Key": "name", "Value": "multi-tag-volume" } ] } ]');"""
-CREATE_AWS_CLOUD_CONTROL_LOG_GROUP = """insert into aws.cloud_control.resources(region, data__TypeName, data__DesiredState) select 'ap-southeast-1', 'AWS::Logs::LogGroup', string('{ "LogGroupName": "LogGroupResourceExampleThird", "RetentionInDays":90}');"""
 SELECT_AWS_CLOUD_CONTROL_VPCS_DESC = "select Identifier, Properties from aws.cloud_control.resources where region = 'ap-southeast-1' and data__TypeName = 'AWS::EC2::VPC' order by Identifier desc;"
 SELECT_AWS_CLOUD_CONTROL_BUCKET_PROJECTION = "SELECT JSON_EXTRACT(Properties, '$.Arn') as Arn FROM aws.cloud_control.resources WHERE region = 'ap-southeast-2' and data__TypeName = 'AWS::S3::Bucket' and data__Identifier = 'stackql-trial-bucket-01';"
 SELECT_AWS_CLOUD_CONTROL_BUCKET_VIEW_PROJECTION = "select Arn from aws.pseudo_s3.s3_bucket_listing where data__Identifier = 'stackql-trial-bucket-01' ;"
@@ -604,7 +606,6 @@ SELECT_AWS_CLOUD_CONTROL_BUCKET_PROJECTION_DEFECTIVE = "SELECT JSON_EXTRACT(Arn,
 GET_AWS_CLOUD_CONTROL_VPCS_DESC = "select Identifier, Properties from aws.cloud_control.resources where region = 'ap-southeast-1' and data__TypeName = 'AWS::EC2::VPC' and data__Identifier = 'CloudControlExample';"
 GET_AWS_CLOUD_CONTROL_REQUEST_LOG_GROUP = """select TypeName, OperationStatus, StatusMessage, Identifier, RequestToken from aws.cloud_control.resource_requests where data__RequestToken = 'abc001' and region = 'ap-southeast-1';"""
 SELECT_AWS_CLOUD_CONTROL_OPERATIONS_DESC = "select TypeName, OperationStatus, StatusMessage, Identifier, RequestToken from aws.cloud_control.resource_requests where data__ResourceRequestStatusFilter='{}' and region = 'ap-southeast-1' order by RequestToken desc;"
-UPDATE_AWS_CLOUD_CONTROL_REQUEST_LOG_GROUP = """update aws.cloud_control.resources set data__PatchDocument = string('[{"op":"replace","path":"/RetentionInDays","value":180}]') WHERE region = 'ap-southeast-1' AND data__TypeName = 'AWS::Logs::LogGroup' AND data__Identifier = 'LogGroupResourceExampleThird';"""
 UPDATE_AWS_EC2_VOLUME = "update aws.ec2.volumes set Size = 12 WHERE region = 'ap-southeast-1' AND VolumeId = 'vol-000000000000001';"
 
 UPDATE_GITHUB_ORG = "update github.orgs.orgs set data__description = 'Some silly description.' WHERE  org = 'dummyorg';"
@@ -688,8 +689,6 @@ SELECT_SOME_VIEW_RECREATED_EXPECTED_JSON = get_json_from_local_file(os.path.join
 SELECT_CROSS_CLOUD_DISKS_VIEW_EXPECTED_JSON = get_json_from_local_file(os.path.join('test', 'assets', 'expected', 'views', 'select-cross-cloud-disks.json'))
 
 SELECT_POSTGRES_CATALOG_JOIN = "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind in ('r', 'p');"
-
-DELETE_AWS_CLOUD_CONTROL_LOG_GROUP = "delete from aws.cloud_control.resources where region = 'ap-southeast-1' and data__TypeName = 'AWS::Logs::LogGroup' and data__Identifier = 'LogGroupResourceExampleThird';"
 
 SELECT_AWS_VOLUMES_ASC_EXPECTED = get_output_from_local_file(os.path.join('test', 'assets', 'expected', 'aws', 'ec2', 'select-volumes-asc.txt'))
 SELECT_AWS_EC2_VPN_GATEWAYS_NULL_EXPECTED = get_output_from_local_file(os.path.join('test', 'assets', 'expected', 'aws', 'ec2', 'select-vpn-gateways-empty.txt'))
@@ -823,6 +822,7 @@ def get_variables(execution_env :str, sql_backend_str :str):
     'MOCKSERVER_PORT_GITHUB':                         MOCKSERVER_PORT_GITHUB,
     'MOCKSERVER_PORT_GOOGLE':                         MOCKSERVER_PORT_GOOGLE,
     'MOCKSERVER_PORT_GOOGLEADMIN':                    MOCKSERVER_PORT_GOOGLEADMIN,
+    'MOCKSERVER_PORT_STACKQL_AUTH_TESTING':           MOCKSERVER_PORT_STACKQL_AUTH_TESTING,
     'MOCKSERVER_PORT_K8S':                            MOCKSERVER_PORT_K8S,
     'MOCKSERVER_PORT_OKTA':                           MOCKSERVER_PORT_OKTA,
     'MOCKSERVER_PORT_REGISTRY':                       MOCKSERVER_PORT_REGISTRY,
@@ -872,8 +872,6 @@ def get_variables(execution_env :str, sql_backend_str :str):
     'AWS_CLOUD_CONTROL_BUCKET_VIEW_DETAIL_STAR_EXPECTED':                     SELECT_AWS_CLOUD_CONTROL_BUCKET_VIEW_STAR_EXPECTED,
     'AZURE_VM_SIZES_ENUMERATION':                                             _AZURE_VM_SIZES_ENUMERATION,
     'CREATE_AWS_VOLUME':                                                      CREATE_AWS_VOLUME,
-    'CREATE_AWS_CLOUD_CONTROL_LOG_GROUP':                                     CREATE_AWS_CLOUD_CONTROL_LOG_GROUP,
-    'DELETE_AWS_CLOUD_CONTROL_LOG_GROUP':                                     DELETE_AWS_CLOUD_CONTROL_LOG_GROUP,
     'DESCRIBE_AWS_EC2_INSTANCES':                                             DESCRIBE_AWS_EC2_INSTANCES,
     'DESCRIBE_AWS_EC2_DEFAULT_KMS_KEY_ID':                                    DESCRIBE_AWS_EC2_DEFAULT_KMS_KEY_ID,
     'DESCRIBE_GITHUB_REPOS_PAGES':                                            DESCRIBE_GITHUB_REPOS_PAGES,
@@ -1017,7 +1015,6 @@ def get_variables(execution_env :str, sql_backend_str :str):
     'SHOW_OKTA_APPLICATION_RESOURCES_FILTERED_STR':                           SHOW_OKTA_APPLICATION_RESOURCES_FILTERED_STR,
     'SHOW_OKTA_SERVICES_FILTERED_STR':                                        SHOW_OKTA_SERVICES_FILTERED_STR,
     'SHOW_PROVIDERS_STR':                                                     SHOW_PROVIDERS_STR,
-    'UPDATE_AWS_CLOUD_CONTROL_REQUEST_LOG_GROUP':                             UPDATE_AWS_CLOUD_CONTROL_REQUEST_LOG_GROUP,
     'UPDATE_AWS_EC2_VOLUME':                                                  UPDATE_AWS_EC2_VOLUME,
     'UPDATE_GITHUB_ORG':                                                      UPDATE_GITHUB_ORG,
     'VIEW_SELECT_AWS_CLOUD_CONTROL_BUCKET_DETAIL_EXPECTED':                   VIEW_SELECT_AWS_CLOUD_CONTROL_BUCKET_DETAIL_EXPECTED,
@@ -1035,6 +1032,7 @@ def get_variables(execution_env :str, sql_backend_str :str):
     rv['JSON_INIT_FILE_PATH_GITHUB']                    = JSON_INIT_FILE_PATH_GITHUB
     rv['JSON_INIT_FILE_PATH_GOOGLE']                    = JSON_INIT_FILE_PATH_GOOGLE
     rv['JSON_INIT_FILE_PATH_GOOGLEADMIN']               = JSON_INIT_FILE_PATH_GOOGLEADMIN
+    rv['JSON_INIT_FILE_PATH_STACKQL_AUTH_TESTING']      = JSON_INIT_FILE_PATH_STACKQL_AUTH_TESTING
     rv['JSON_INIT_FILE_PATH_K8S']                       = JSON_INIT_FILE_PATH_K8S
     rv['JSON_INIT_FILE_PATH_OKTA']                      = JSON_INIT_FILE_PATH_OKTA
     rv['JSON_INIT_FILE_PATH_REGISTRY']                  = JSON_INIT_FILE_PATH_REGISTRY
@@ -1062,6 +1060,7 @@ def get_variables(execution_env :str, sql_backend_str :str):
     rv['JSON_INIT_FILE_PATH_GITHUB']                    = JSON_INIT_FILE_PATH_GITHUB
     rv['JSON_INIT_FILE_PATH_GOOGLE']                    = JSON_INIT_FILE_PATH_GOOGLE
     rv['JSON_INIT_FILE_PATH_GOOGLEADMIN']               = JSON_INIT_FILE_PATH_GOOGLEADMIN
+    rv['JSON_INIT_FILE_PATH_STACKQL_AUTH_TESTING']      = JSON_INIT_FILE_PATH_STACKQL_AUTH_TESTING
     rv['JSON_INIT_FILE_PATH_K8S']                       = JSON_INIT_FILE_PATH_K8S
     rv['JSON_INIT_FILE_PATH_OKTA']                      = JSON_INIT_FILE_PATH_OKTA
     rv['JSON_INIT_FILE_PATH_REGISTRY']                  = JSON_INIT_FILE_PATH_REGISTRY

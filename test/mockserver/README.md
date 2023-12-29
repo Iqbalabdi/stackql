@@ -4,7 +4,7 @@
 
 ## Mock Server
 
-We are using the java [mockserver](https://www.mock-server.com/) tool.
+We are using the java [mockserver](https://www.mock-server.com/) tool.  As of now, this requires `java 11` and **not** some newer version; otherwise consequences are errors in the `BouncyCastle` TLS library.
 
 Some doco on creating expectations [here](https://www.mock-server.com/mock_server/creating_expectations.html#button_match_request_by_query_parameter_name_regex).
 
@@ -62,6 +62,12 @@ java  -Dfile.encoding=UTF-8 -Dmockserver.initializationJsonPath=${HOME}/stackql/
 
 ```bash
 java  -Dfile.encoding=UTF-8 -Dmockserver.initializationJsonPath=${HOME}/stackql/stackql-devel/test/mockserver/expectations/static-google-admin-expectations.json -jar ${HOME}/stackql/stackql-devel/test/downloads/mockserver-netty-5.12.0-shaded.jar  -serverPort 1098 -logLevel INFO
+```
+
+stackql auth testing mocks:
+
+```bash
+java  -Dfile.encoding=UTF-8 -Dmockserver.initializationJsonPath=${HOME}/stackql/stackql-devel/test/mockserver/expectations/static-auth-testing-expectations.json -jar ${HOME}/stackql/stackql-devel/test/downloads/mockserver-netty-5.12.0-shaded.jar  -serverPort 1170 -logLevel INFO
 ```
 
 ### Expectations from local file

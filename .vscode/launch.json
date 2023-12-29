@@ -127,8 +127,8 @@
         "SELECT * FROM aws.ec2.instance_types WHERE region = 'us-east-1';",
         "CREATE MATERIALIZED VIEW vw_ec2_instance_types AS SELECT memoryInfo, hypervisor, autoRecoverySupported, instanceType, SPLIT_PART(processorInfo, '\n', 3) as processorArch, currentGeneration, freeTierEligible, hibernationSupported, SPLIT_PART(vCpuInfo, '\n', 2) as vCPUs, bareMetal, burstablePerformanceSupported, dedicatedHostsSupported,  region FROM aws.ec2.instance_types WHERE region = 'us-east-1'; SELECT i.instanceId, i.instanceType, it.vCPUs, it.memoryInfo FROM aws.ec2.instances i INNER JOIN vw_ec2_instance_types it ON i.instanceType = it.instanceType WHERE i.region = 'us-east-1';",
         "create materialized view vw_aws_usr as select * from aws.iam.users where region = 'us-east-1'; select u1.Arn, u2.UserName, u1.region from aws.iam.users u1 inner join vw_aws_usr u2 on u1.Arn = u2.Arn where u1.region = 'us-east-1' and u2.region = 'us-east-1' ;",
-        "create materialized view org_celebrity_contributors as ( select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'go-openapistackql' UNION ALL select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'stackql' UNION ALL select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'stackql-provider-registry') ;",
-        "create materialized view org_celeb_contributors as select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'go-openapistackql' UNION ALL select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'stackql' UNION ALL select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'stackql-provider-registry' ;",
+        "create materialized view org_celebrity_contributors as ( select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'any-sdk' UNION ALL select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'stackql' UNION ALL select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'stackql-provider-registry') ;",
+        "create materialized view org_celeb_contributors as select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'any-sdk' UNION ALL select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'stackql' UNION ALL select login, contributions FROM github.repos.contributors WHERE owner = 'stackql' AND repo = 'stackql-provider-registry' ;",
         "SELECT f.url, f.login FROM ( SELECT  clone_url as url, SPLIT_PART(clone_url, '/', -2) as login FROM github.repos.forks WHERE owner = 'stackql' AND repo = 'stackql' ) f LEFT OUTER JOIN github.activity.repo_stargazers s ON s.login = f.login WHERE owner = 'stackql' AND repo = 'stackql' ;",
         "select u1.UserName, u.UserId, u.Arn, u1.region from ( select Arn, UserName, UserId from aws.iam.users where region = 'us-east-1' ) u inner join aws.iam.users u1 on u1.Arn = u.Arn where region = 'us-east-1'  order by u1.UserName desc;",
       ],
@@ -145,7 +145,7 @@
         "{ \"url\": \"file://${workspaceFolder}/test/registry-mocked-native\", \"localDocRoot\": \"${workspaceFolder}/test/registry-mocked-native\", \"verifyConfig\": { \"nopVerify\": true } }",
         "{ \"url\": \"file://${workspaceFolder}/test/registry-advanced\", \"localDocRoot\": \"${workspaceFolder}/test/registry-advanced\", \"verifyConfig\": { \"nopVerify\": true } }",
         "{ \"url\": \"file://${workspaceFolder}/build/.stackql\", \"localDocRoot\": \"${workspaceFolder}/build/.stackql\" }",
-        "{ \"url\": \"file://${workspaceFolder}/examples/empty-registry\", \"localDocRoot\": \"${workspaceFolder}/examples/empty-registry\" }",
+        "{ \"url\": \"file://${workspaceFolder}/docs/examples/empty-registry\", \"localDocRoot\": \"${workspaceFolder}/docs/examples/empty-registry\" }",
         "{ \"url\": \"https://cdn.statically.io/gh/stackql/stackql-provider-registry/main/providers\", \"localDocRoot\": \"${workspaceFolder}/test/registry\" }",
         "{ \"url\": \"https://cdn.statically.io/gh/stackql/stackql-provider-registry/dev/providers\" }",
         "{ \"url\": \"https://registry-dev.stackql.app/providers\" }",
@@ -157,11 +157,11 @@
       "type": "pickString",
       "id": "authString",
       "description": "Auth Input arg String",
-      "default": "{ \"azure\": { \"type\": \"azure_default\" }, \"digitalocean\": { \"type\": \"bearer\", \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/digitalocean-key.txt\" }, \"google\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/stackql-security-reviewer.json\" },  \"googleadmin\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/ryuk-it-query.json\" }, \"okta\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/okta-token.txt\", \"type\": \"api_key\" }, \"github\": { \"type\": \"basic\", \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/github-key.txt\" }, \"aws\": { \"type\": \"aws_signing_v4\", \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/aws-secret-key.txt\", \"keyID\": \"AKIA376P4FQSS2ONB2NS\" }, \"netlify\": { \"type\": \"api_key\", \"valuePrefix\": \"Bearer \", \"credentialsfilepath\": \"${workspaceFolder}/keys/netlify-token.txt\"  }, \"k8s\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/k8s-token.txt\", \"type\": \"api_key\", \"valuePrefix\": \"Bearer \" }, \"sumologic\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/sumologic-token.txt\", \"type\": \"basic\" } }",
+      "default": "{ \"azure\": { \"type\": \"azure_default\" }, \"digitalocean\": { \"type\": \"bearer\", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/digitalocean-key.txt\" }, \"google\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/stackql-security-reviewer.json\" },  \"googleadmin\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/ryuk-it-query.json\" }, \"okta\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/okta-token.txt\", \"type\": \"api_key\" }, \"github\": { \"type\": \"basic\", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/github-key.txt\" }, \"aws\": { \"type\": \"aws_signing_v4\", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/aws-secret-key.txt\", \"keyID\": \"AKIA376P4FQSS2ONB2NS\" }, \"netlify\": { \"type\": \"api_key\", \"valuePrefix\": \"Bearer \", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/netlify-token.txt\"  }, \"k8s\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/k8s-token.txt\", \"type\": \"api_key\", \"valuePrefix\": \"Bearer \" }, \"sumologic\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/sumologic-token.txt\", \"type\": \"basic\" } }",
       "options": [
-        "{ \"azure\": { \"type\": \"azure_default\" }, \"digitalocean\": { \"type\": \"bearer\", \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/digitalocean-key.txt\" }, \"google\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/stackql-security-reviewer.json\" },  \"googleadmin\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/ryuk-it-query.json\" }, \"okta\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/okta-token.txt\", \"type\": \"api_key\" }, \"github\": { \"type\": \"basic\", \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/github-key.txt\" }, \"aws\": { \"type\": \"aws_signing_v4\", \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/aws-secret-key.txt\", \"keyID\": \"AKIA376P4FQSS2ONB2NS\" }, \"netlify\": { \"type\": \"api_key\", \"valuePrefix\": \"Bearer \", \"credentialsfilepath\": \"${workspaceFolder}/keys/netlify-token.txt\"  }, \"k8s\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/k8s-token.txt\", \"type\": \"api_key\", \"valuePrefix\": \"Bearer \" }, \"sumologic\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/sumologic-token.txt\", \"type\": \"basic\" } }",
+        "{ \"azure\": { \"type\": \"azure_default\" }, \"digitalocean\": { \"type\": \"bearer\", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/digitalocean-key.txt\" }, \"google\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/stackql-security-reviewer.json\" },  \"googleadmin\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/ryuk-it-query.json\" }, \"okta\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/okta-token.txt\", \"type\": \"api_key\" }, \"github\": { \"type\": \"basic\", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/github-key.txt\" }, \"aws\": { \"type\": \"aws_signing_v4\", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/aws-secret-key.txt\", \"keyID\": \"AKIA376P4FQSS2ONB2NS\" }, \"netlify\": { \"type\": \"api_key\", \"valuePrefix\": \"Bearer \", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/netlify-token.txt\"  }, \"k8s\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/k8s-token.txt\", \"type\": \"api_key\", \"valuePrefix\": \"Bearer \" }, \"sumologic\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/sumologic-token.txt\", \"type\": \"basic\" } }",
         "{ \"google\": { \"credentialsfilepath\": \"${workspaceFolder}/test/assets/credentials/dummy/google/functional-test-dummy-sa-key.json\" }, \"googleadmin\": { \"credentialsfilepath\": \"${workspaceFolder}/test/assets/credentials/dummy/google/functional-test-dummy-sa-key.json\" },s \"okta\": { \"credentialsfilepath\": \"${workspaceFolder}/test/assets/credentials/dummy/okta/api-key.txt\", \"type\": \"api_key\", \"valuePrefix\": \"SSWS \" }, \"github\": { \"type\": \"basic\", \"credentialsfilepath\": \"${workspaceFolder}/test/assets/credentials/dummy/okta/api-key.txt\" }, \"aws\": { \"type\": \"aws_signing_v4\", \"credentialsfilepath\": \"${workspaceFolder}/test/assets/credentials/dummy/aws/functional-test-dummy-aws-key.txt\", \"keyID\": \"AKIA376P4FQSS2ONB2NS\" }, \"netlify\": { \"type\": \"api_key\", \"valuePrefix\": \"Bearer \", \"credentialsfilepath\": \"${workspaceFolder}/test/assets/credentials/dummy/netlify/netlify-token.txt\"  }, \"k8s\": { \"credentialsfilepath\": \"${workspaceFolder}/test/assets/credentials/dummy/k8s/k8s-token.txt\", \"type\": \"api_key\", \"valuePrefix\": \"Bearer \" }, \"sumologic\": { \"credentialsfilepath\": \"${workspaceFolder}/test/assets/credentials/dummy/sumologic/sumologic-token.txt\", \"type\": \"basic\" } }",
-        "{ \"pgi\": { \"type\": \"sql_data_source::postgres\", \"sqlDataSource\": { \"dsn\": \"postgres://stackql:stackql@127.0.0.1:8432\" } }, \"azure\": { \"type\": \"azure_default\" }, \"google\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/stackql-security-reviewer.json\" }, \"okta\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/okta-token.txt\", \"type\": \"api_key\" }, \"github\": { \"type\": \"basic\", \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/github-key.txt\" }, \"aws\": { \"type\": \"aws_signing_v4\", \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/aws-secret-key.txt\", \"keyID\": \"AKIA376P4FQSS2ONB2NS\" }, \"netlify\": { \"type\": \"api_key\", \"valuePrefix\": \"Bearer \", \"credentialsfilepath\": \"${workspaceFolder}/keys/netlify-token.txt\"  }, \"k8s\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/k8s-token.txt\", \"type\": \"api_key\", \"valuePrefix\": \"Bearer \" }, \"sumologic\": { \"credentialsfilepath\": \"${workspaceFolder}/keys/integration/sumologic-token.txt\", \"type\": \"basic\" } }",
+        "{ \"pgi\": { \"type\": \"sql_data_source::postgres\", \"sqlDataSource\": { \"dsn\": \"postgres://stackql:stackql@127.0.0.1:8432\" } }, \"azure\": { \"type\": \"azure_default\" }, \"google\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/stackql-security-reviewer.json\" }, \"okta\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/okta-token.txt\", \"type\": \"api_key\" }, \"github\": { \"type\": \"basic\", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/github-key.txt\" }, \"aws\": { \"type\": \"aws_signing_v4\", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/aws-secret-key.txt\", \"keyID\": \"AKIA376P4FQSS2ONB2NS\" }, \"netlify\": { \"type\": \"api_key\", \"valuePrefix\": \"Bearer \", \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/netlify-token.txt\"  }, \"k8s\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/k8s-token.txt\", \"type\": \"api_key\", \"valuePrefix\": \"Bearer \" }, \"sumologic\": { \"credentialsfilepath\": \"${workspaceFolder}/cicd/keys/integration/sumologic-token.txt\", \"type\": \"basic\" } }",
         "{ \"digitalocean\": { \"username_var\": \"DUMMY_DIGITALOCEAN_USERNAME\", \"password_var\": \"DUMMY_DIGITALOCEAN_PASSWORD\", \"type\": \"bearer\" } }"
       ]
     },
@@ -172,6 +172,19 @@
       "default": "-tags=json1,sqleanall",
       "options": [
         "-tags=json1,sqleanall"
+      ]
+    },
+    {
+      "type": "pickString",
+      "id": "concurrencyLimit",
+      "description": "Concurrency Limit",
+      "default": "1",
+      "options": [
+        "1",
+        "-1",
+        "3",
+        "10",
+        "50"
       ]
     },
 
@@ -404,7 +417,9 @@
       "type": "go",
       "env": {
         "DUMMY_DIGITALOCEAN_USERNAME": "myusername",
-        "DUMMY_DIGITALOCEAN_PASSWORD": "mypassword"
+        "DUMMY_DIGITALOCEAN_PASSWORD": "mypassword",
+        "DD_API_KEY": "myusername",
+        "DD_APPLICATION_KEY": "mypassword"
       },
       "request": "launch",
       "mode": "debug",
@@ -419,6 +434,7 @@
         "--sqlBackend=${input:sqlBackendString}",
         "--namespaces=${input:namespaceString}",
         "--dbInternal=${input:dbInternalString}",
+        "--execution.concurrency.limit=${input:concurrencyLimit}",
         "${input:queryString}"
       ],
     },

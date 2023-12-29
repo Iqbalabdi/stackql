@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/stackql/go-openapistackql/pkg/httpelement"
-	"github.com/stackql/go-openapistackql/pkg/response"
+	"github.com/stackql/any-sdk/pkg/httpelement"
+	"github.com/stackql/any-sdk/pkg/response"
 	"github.com/stackql/stackql/internal/stackql/drm"
 	"github.com/stackql/stackql/internal/stackql/handler"
 	"github.com/stackql/stackql/internal/stackql/httpmiddleware"
@@ -19,7 +19,7 @@ import (
 	"github.com/stackql/stackql/internal/stackql/tablemetadata"
 	"github.com/stackql/stackql/internal/stackql/util"
 
-	sdk_internal_dto "github.com/stackql/go-openapistackql/pkg/internaldto"
+	sdk_internal_dto "github.com/stackql/any-sdk/pkg/internaldto"
 )
 
 // SingleSelectAcquire implements the Builder interface
@@ -137,7 +137,8 @@ func (ss *SingleSelectAcquire) Build() error {
 			ok := true
 			if ok && ss.handlerCtx.GetRuntimeContext().HTTPMaxResults > 0 {
 				passOverParams := httpArmoury.GetRequestParams()
-				for i, param := range passOverParams {
+				for i, p := range passOverParams {
+					param := p
 					// param.Context.SetQueryParam("maxResults", strconv.Itoa(ss.handlerCtx.GetRuntimeContext().HTTPMaxResults))
 					q := param.GetQuery()
 					q.Set("maxResults", strconv.Itoa(ss.handlerCtx.GetRuntimeContext().HTTPMaxResults))
@@ -147,7 +148,9 @@ func (ss *SingleSelectAcquire) Build() error {
 				httpArmoury.SetRequestParams(passOverParams)
 			}
 		}
-		for _, reqCtx := range httpArmoury.GetRequestParams() {
+		reqParams := httpArmoury.GetRequestParams()
+		for _, rc := range reqParams {
+			reqCtx := rc
 			paramsUsed, paramErr := reqCtx.ToFlatMap()
 			if paramErr != nil {
 				return internaldto.NewErroneousExecutorOutput(paramErr)

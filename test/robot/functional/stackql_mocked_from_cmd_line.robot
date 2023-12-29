@@ -307,6 +307,15 @@ GitHub Orgs Org Update Simple
     ...    The operation was despatched successfully
 
 AWS Cloud Control Log Group Insert Simple
+    ${inputStr} =    Catenate
+    ...              insert into aws.cloud_control.resources(
+    ...              region, data__TypeName, data__DesiredState
+    ...              ) 
+    ...              select 
+    ...              'ap-southeast-1', 
+    ...              'AWS::Logs::LogGroup', 
+    ...              string('{ "LogGroupName": "LogGroupResourceExampleThird", "RetentionInDays":90}')
+    ...              ;
     Should StackQL Exec Inline Equal Stderr
     ...    ${STACKQL_EXE}
     ...    ${OKTA_SECRET_STR}
@@ -315,10 +324,36 @@ AWS Cloud Control Log Group Insert Simple
     ...    ${REGISTRY_NO_VERIFY_CFG_STR}
     ...    ${AUTH_CFG_STR}
     ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
-    ...    ${CREATE_AWS_CLOUD_CONTROL_LOG_GROUP}
+    ...    ${inputStr}
+    ...    The operation was despatched successfully
+
+AWS Cloud Control Log Group Insert Simple Rely on Annotation
+    ${inputStr} =    Catenate
+    ...              INSERT INTO aws.cloud_control.resources 
+    ...              (data__TypeName, region, data__DesiredState) 
+    ...              SELECT 'AWS::Logs::LogGroup', 
+    ...              'ap-southeast-1', 
+    ...              '{"LogGroupName": "LogGroupResourceExample3","RetentionInDays":90}'
+    ...              ;
+    Should StackQL Exec Inline Equal Stderr
+    ...    ${STACKQL_EXE}
+    ...    ${OKTA_SECRET_STR}
+    ...    ${GITHUB_SECRET_STR}
+    ...    ${K8S_SECRET_STR}
+    ...    ${REGISTRY_NO_VERIFY_CFG_STR}
+    ...    ${AUTH_CFG_STR}
+    ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
+    ...    ${inputStr}
     ...    The operation was despatched successfully
 
 AWS Cloud Control Log Group Delete Simple
+    ${inputStr} =    Catenate
+    ...              delete from aws.cloud_control.resources 
+    ...              where 
+    ...              region = 'ap-southeast-1' 
+    ...              and data__TypeName = 'AWS::Logs::LogGroup' 
+    ...              and data__Identifier = 'LogGroupResourceExampleThird'
+    ...              ;
     Should StackQL Exec Inline Equal Stderr
     ...    ${STACKQL_EXE}
     ...    ${OKTA_SECRET_STR}
@@ -327,10 +362,18 @@ AWS Cloud Control Log Group Delete Simple
     ...    ${REGISTRY_NO_VERIFY_CFG_STR}
     ...    ${AUTH_CFG_STR}
     ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
-    ...    ${DELETE_AWS_CLOUD_CONTROL_LOG_GROUP}
+    ...    ${inputStr}
     ...    The operation was despatched successfully
 
 AWS Cloud Control Log Group Update Simple
+    ${inputStr} =    Catenate
+    ...              update aws.cloud_control.resources 
+    ...              set data__PatchDocument = string('[{"op":"replace","path":"/RetentionInDays","value":180}]') 
+    ...              WHERE 
+    ...              region = 'ap-southeast-1' 
+    ...              AND data__TypeName = 'AWS::Logs::LogGroup' 
+    ...              AND data__Identifier = 'LogGroupResourceExampleThird'
+    ...              ;
     Should StackQL Exec Inline Equal Stderr
     ...    ${STACKQL_EXE}
     ...    ${OKTA_SECRET_STR}
@@ -339,7 +382,7 @@ AWS Cloud Control Log Group Update Simple
     ...    ${REGISTRY_NO_VERIFY_CFG_STR}
     ...    ${AUTH_CFG_STR}
     ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
-    ...    ${UPDATE_AWS_CLOUD_CONTROL_REQUEST_LOG_GROUP}
+    ...    ${inputStr}
     ...    The operation was despatched successfully
 
 GitHub Pages Select Top Level Object
@@ -2542,6 +2585,345 @@ Select Star of EC2 Instances Returns Expected Result
     ...    vol-1234567890abcdef0
     ...    stdout=${CURDIR}/tmp/Select-Star-of-EC2-Instances-Returns-Expected-Result.tmp
 
+Select With IN Scalars inside WHERE Clause Returns Expected Result
+    ${inputStr} =    Catenate
+    ...              select 
+    ...              instanceId, ipAddress 
+    ...              from aws.ec2.instances 
+    ...              where 
+    ...              region = 'ap-southeast-2'
+    ...              and instanceId not in ('some-silly-id') 
+    ...              and ipAddress in ('54.194.252.215')
+    ...              and region in ('ap-southeast-2')
+    ...              ;
+    ${outputStr} =    Catenate    SEPARATOR=\n
+    ...               |---------------------|----------------|
+    ...               |${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}instanceId${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}${SPACE}${SPACE}ipAddress${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...               |---------------------|----------------|
+    ...               |${SPACE}i-1234567890abcdef0${SPACE}|${SPACE}54.194.252.215${SPACE}|
+    ...               |---------------------|----------------|
+    Should StackQL Exec Inline Equal
+    ...    ${STACKQL_EXE}
+    ...    ${OKTA_SECRET_STR}
+    ...    ${GITHUB_SECRET_STR}
+    ...    ${K8S_SECRET_STR}
+    ...    ${REGISTRY_NO_VERIFY_CFG_STR}    
+    ...    ${AUTH_CFG_STR}
+    ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
+    ...    ${inputStr}
+    ...    ${outputStr}
+    ...    stdout=${CURDIR}/tmp/Select-With-IN-Scalars-inside-WHERE-Clause-Returns-Expected-Result.tmp
+
+
+Select With Server Parameters inside IN Scalars inside WHERE Clause Returns Expected Result
+    ${inputStr} =    Catenate
+    ...              select 
+    ...              instanceId, 
+    ...              ipAddress 
+    ...              from aws.ec2.instances 
+    ...              where 
+    ...              instanceId not in ('some-silly-id')  
+    ...              and region in ('ap-southeast-2', 'ap-southeast-1')
+    ...              ;
+    ${outputStr} =    Catenate    SEPARATOR=\n
+    ...               |---------------------|----------------|
+    ...               |${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}instanceId${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}${SPACE}${SPACE}ipAddress${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...               |---------------------|----------------|
+    ...               |${SPACE}i-1234567890abcdef0${SPACE}|${SPACE}54.194.252.215${SPACE}|
+    ...               |---------------------|----------------|
+    ...               |${SPACE}i-1234567890abcdef0${SPACE}|${SPACE}54.194.252.215${SPACE}|
+    ...               |---------------------|----------------|
+
+    Should StackQL Exec Inline Equal
+    ...    ${STACKQL_EXE}
+    ...    ${OKTA_SECRET_STR}
+    ...    ${GITHUB_SECRET_STR}
+    ...    ${K8S_SECRET_STR}
+    ...    ${REGISTRY_NO_VERIFY_CFG_STR}    
+    ...    ${AUTH_CFG_STR}
+    ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
+    ...    ${inputStr}
+    ...    ${outputStr}
+    ...    stdout=${CURDIR}/tmp/Select-With-Server-Parameters-inside-IN-Scalars-inside-WHERE-Clause-Returns-Expected-Result.tmp
+
+Select With Path Parameters inside IN Scalars inside WHERE Clause Returns Expected Result
+    ${inputStr} =     Catenate
+    ...               select 
+    ...               ipCidrRange, 
+    ...               subnetwork 
+    ...               from google.container."projects.aggregated.usableSubnetworks"
+    ...               where 
+    ...               projectsId in ('testing-project', 'another-project', 'yet-another-project') 
+    ...               order by subnetwork desc
+    ...               ;
+    ${outputStr} =    Catenate    SEPARATOR=\n
+    ...               |-------------|-----------------------------------------------------------------------------|
+    ...               |${SPACE}ipCidrRange${SPACE}|${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}subnetwork${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...               |-------------|-----------------------------------------------------------------------------|
+    ...               |${SPACE}10.0.1.0/24${SPACE}|${SPACE}projects/yet-another-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|
+    ...               |-------------|-----------------------------------------------------------------------------|
+    ...               |${SPACE}10.0.0.0/24${SPACE}|${SPACE}projects/yet-another-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|
+    ...               |-------------|-----------------------------------------------------------------------------|
+    ...               |${SPACE}10.0.1.0/24${SPACE}|${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...               |-------------|-----------------------------------------------------------------------------|
+    ...               |${SPACE}10.0.0.0/24${SPACE}|${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...               |-------------|-----------------------------------------------------------------------------|
+    ...               |${SPACE}10.0.1.0/24${SPACE}|${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...               |-------------|-----------------------------------------------------------------------------|
+    ...               |${SPACE}10.0.0.0/24${SPACE}|${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...               |-------------|-----------------------------------------------------------------------------|
+    Should StackQL Exec Inline Equal
+    ...    ${STACKQL_EXE}
+    ...    ${OKTA_SECRET_STR}
+    ...    ${GITHUB_SECRET_STR}
+    ...    ${K8S_SECRET_STR}
+    ...    ${REGISTRY_NO_VERIFY_CFG_STR}
+    ...    ${AUTH_CFG_STR}
+    ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
+    ...    ${inputStr}
+    ...    ${outputStr}
+    ...    stdout=${CURDIR}/tmp/Select-With-Path-Parameters-inside-IN-Scalars-inside-WHERE-Clause-Returns-Expected-Result.tmp
+
+Select With Path Parameters inside IN Scalars Mixed With an Equals Parameter all inside WHERE Clause Returns Expected Result
+    ${inputStr} =     Catenate
+    ...    select 
+    ...    id, 
+    ...    name  
+    ...    from google.compute.acceleratorTypes 
+    ...    where 
+    ...    project in ('testing-project', 'another-project') 
+    ...    and zone = 'australia-southeast1-a' 
+    ...    order by id desc
+    ...    ;
+    ${outputStr} =    Catenate    SEPARATOR=\n
+    ...    |-------|---------------------|
+    ...    |${SPACE}${SPACE}id${SPACE}${SPACE}${SPACE}|${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}name${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------|---------------------|
+    ...    |${SPACE}11020${SPACE}|${SPACE}nvidia-tesla-t4-vws${SPACE}|
+    ...    |-------|---------------------|
+    ...    |${SPACE}11019${SPACE}|${SPACE}nvidia-tesla-t4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------|---------------------|
+    ...    |${SPACE}11012${SPACE}|${SPACE}nvidia-tesla-p4-vws${SPACE}|
+    ...    |-------|---------------------|
+    ...    |${SPACE}11010${SPACE}|${SPACE}nvidia-tesla-p4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------|---------------------|
+    ...    |${SPACE}10020${SPACE}|${SPACE}nvidia-tesla-t4-vws${SPACE}|
+    ...    |-------|---------------------|
+    ...    |${SPACE}10019${SPACE}|${SPACE}nvidia-tesla-t4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------|---------------------|
+    ...    |${SPACE}10012${SPACE}|${SPACE}nvidia-tesla-p4-vws${SPACE}|
+    ...    |-------|---------------------|
+    ...    |${SPACE}10010${SPACE}|${SPACE}nvidia-tesla-p4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------|---------------------|
+    Should StackQL Exec Inline Equal
+    ...    ${STACKQL_EXE}
+    ...    ${OKTA_SECRET_STR}
+    ...    ${GITHUB_SECRET_STR}
+    ...    ${K8S_SECRET_STR}
+    ...    ${REGISTRY_NO_VERIFY_CFG_STR}
+    ...    ${AUTH_CFG_STR}
+    ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
+    ...    ${inputStr}
+    ...    ${outputStr}
+    ...    stdout=${CURDIR}/tmp/Select-With-Path-Parameters-inside-IN-Scalars-Mixed-With-an-Equals-Parameter-all-inside-WHERE-Clause-Returns-Expected-Result.tmp
+
+Select Subquery Join With Path Parameters inside IN Scalars inside WHERE Clause Returns Expected Result
+    ${inputStr} =     Catenate
+    ...    select 
+    ...    subnets.subnetwork, 
+    ...    s2.proj 
+    ...    from 
+    ...    ( 
+    ...      select 
+    ...      ipCidrRange, 
+    ...      subnetwork 
+    ...      from google.container."projects.aggregated.usableSubnetworks" 
+    ...      where 
+    ...      projectsId in ('testing-project', 'another-project', 'yet-another-project') 
+    ...      order by subnetwork desc 
+    ...    ) subnets 
+    ...    inner join 
+    ...    (
+    ...      select 
+    ...      ipCidrRange, 
+    ...      subnetwork, 
+    ...      split_part(subnetwork, '/', 2) as proj 
+    ...      from google.container."projects.aggregated.usableSubnetworks" 
+    ...      where projectsId in ('testing-project', 'another-project', 'yet-another-project') 
+    ...      order by subnetwork desc 
+    ...    ) s2 
+    ...    on 
+    ...    subnets.subnetwork = s2.subnetwork 
+    ...    order by subnets.subnetwork desc
+    ...    ;
+    ${outputStr} =    Catenate    SEPARATOR=\n
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}subnetwork${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}proj${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/yet-another-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|${SPACE}yet-another-project${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/yet-another-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|${SPACE}yet-another-project${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}testing-project${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}testing-project${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}another-project${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}another-project${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    Should StackQL Exec Inline Equal
+    ...    ${STACKQL_EXE}
+    ...    ${OKTA_SECRET_STR}
+    ...    ${GITHUB_SECRET_STR}
+    ...    ${K8S_SECRET_STR}
+    ...    ${REGISTRY_NO_VERIFY_CFG_STR}
+    ...    ${AUTH_CFG_STR}
+    ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
+    ...    ${inputStr}
+    ...    ${outputStr}
+    ...    stdout=${CURDIR}/tmp/Select-Subquery-Join-With-Path-Parameters-inside-IN-Scalars-inside-WHERE-Clause-Returns-Expected-Result.tmp
+
+Select Subquery Join With Path Parameters inside IN Scalars Including Empty inside WHERE Clause Returns Expected Result
+    ${inputStr} =     Catenate
+    ...    select 
+    ...    subnets.subnetwork, 
+    ...    s2.proj 
+    ...    from 
+    ...    ( 
+    ...      select 
+    ...      ipCidrRange, 
+    ...      subnetwork 
+    ...      from google.container."projects.aggregated.usableSubnetworks" 
+    ...      where 
+    ...      projectsId in ('testing-project', 'another-project', 'yet-another-project', 'empty-project') 
+    ...      order by subnetwork desc 
+    ...    ) subnets 
+    ...    inner join 
+    ...    (
+    ...      select 
+    ...      ipCidrRange, 
+    ...      subnetwork, 
+    ...      split_part(subnetwork, '/', 2) as proj 
+    ...      from google.container."projects.aggregated.usableSubnetworks" 
+    ...      where projectsId in ('testing-project', 'another-project', 'yet-another-project', 'empty-project') 
+    ...      order by subnetwork desc 
+    ...    ) s2 
+    ...    on 
+    ...    subnets.subnetwork = s2.subnetwork 
+    ...    order by subnets.subnetwork desc
+    ...    ;
+    ${outputStr} =    Catenate    SEPARATOR=\n
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}subnetwork${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}proj${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/yet-another-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|${SPACE}yet-another-project${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/yet-another-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|${SPACE}yet-another-project${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}testing-project${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}testing-project${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}another-project${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}another-project${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-----------------------------------------------------------------------------|---------------------|
+    Should StackQL Exec Inline Equal
+    ...    ${STACKQL_EXE}
+    ...    ${OKTA_SECRET_STR}
+    ...    ${GITHUB_SECRET_STR}
+    ...    ${K8S_SECRET_STR}
+    ...    ${REGISTRY_NO_VERIFY_CFG_STR}
+    ...    ${AUTH_CFG_STR}
+    ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
+    ...    ${inputStr}
+    ...    ${outputStr}
+    ...    stdout=${CURDIR}/tmp/Select-Subquery-Join-With-Path-Parameters-inside-IN-Scalars-Including-Empty-inside-WHERE-Clause-Returns-Expected-Result.tmp
+
+Select Subquery Join With Parameters inside IN Scalars Plus More inside WHERE Clause Returns Expected Result
+    ${inputStr} =     Catenate
+    ...    select 
+    ...    subnets.subnetwork, 
+    ...    subnets.proj, 
+    ...    accels.name as accelerator_name 
+    ...    from
+    ...    (
+    ...    select 
+    ...    ipCidrRange, 
+    ...    subnetwork,
+    ...    split_part(subnetwork, '/', 2) as proj
+    ...    from google.container."projects.aggregated.usableSubnetworks"
+    ...    where 
+    ...    projectsId in ('testing-project', 'another-project', 'yet-another-project') 
+    ...    order by subnetwork desc
+    ...    ) as subnets
+    ...    inner join
+    ...    (
+    ...    select 
+    ...    id, 
+    ...    name,
+    ...    split_part(selfLink, '/', 7) as proj,
+    ...    split_part(selfLink, '/', -3) as "zone"
+    ...    from google.compute.acceleratorTypes 
+    ...    where 
+    ...    project in ('testing-project', 'another-project') 
+    ...    and zone = 'australia-southeast1-a' 
+    ...    order by id desc
+    ...    ) as accels
+    ...    on subnets.proj = accels.proj
+    ...    order by 
+    ...    subnets.subnetwork desc,
+    ...    accels.name desc
+    ...    ;
+    ${outputStr} =    Catenate    SEPARATOR=\n
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}subnetwork${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}proj${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|${SPACE}${SPACE}accelerator_name${SPACE}${SPACE}${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|${SPACE}testing-project${SPACE}|${SPACE}nvidia-tesla-t4-vws${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|${SPACE}testing-project${SPACE}|${SPACE}nvidia-tesla-t4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|${SPACE}testing-project${SPACE}|${SPACE}nvidia-tesla-p4-vws${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|${SPACE}testing-project${SPACE}|${SPACE}nvidia-tesla-p4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|${SPACE}testing-project${SPACE}|${SPACE}nvidia-tesla-t4-vws${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|${SPACE}testing-project${SPACE}|${SPACE}nvidia-tesla-t4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|${SPACE}testing-project${SPACE}|${SPACE}nvidia-tesla-p4-vws${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/testing-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|${SPACE}testing-project${SPACE}|${SPACE}nvidia-tesla-p4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|${SPACE}another-project${SPACE}|${SPACE}nvidia-tesla-t4-vws${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|${SPACE}another-project${SPACE}|${SPACE}nvidia-tesla-t4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|${SPACE}another-project${SPACE}|${SPACE}nvidia-tesla-p4-vws${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-02${SPACE}|${SPACE}another-project${SPACE}|${SPACE}nvidia-tesla-p4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|${SPACE}another-project${SPACE}|${SPACE}nvidia-tesla-t4-vws${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|${SPACE}another-project${SPACE}|${SPACE}nvidia-tesla-t4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|${SPACE}another-project${SPACE}|${SPACE}nvidia-tesla-p4-vws${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    ...    |${SPACE}projects/another-project/regions/australia-southeast1/subnetworks/sn-01${SPACE}|${SPACE}another-project${SPACE}|${SPACE}nvidia-tesla-p4${SPACE}${SPACE}${SPACE}${SPACE}${SPACE}|
+    ...    |-------------------------------------------------------------------------|-----------------|---------------------|
+    Should StackQL Exec Inline Equal
+    ...    ${STACKQL_EXE}
+    ...    ${OKTA_SECRET_STR}
+    ...    ${GITHUB_SECRET_STR}
+    ...    ${K8S_SECRET_STR}
+    ...    ${REGISTRY_NO_VERIFY_CFG_STR}
+    ...    ${AUTH_CFG_STR}
+    ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
+    ...    ${inputStr}
+    ...    ${outputStr}
+    ...    stdout=${CURDIR}/tmp/Select-Subquery-Join-With-Path-Parameters-inside-IN-Scalars-Plus-More-inside-WHERE-Clause-Returns-Expected-Result.tmp
+
 # This also tests passing integers in request body parameters
 Select Projection of CloudWatch Log Events Returns Expected Result
     Pass Execution If    "${SQL_BACKEND}" == "postgres_tcp"    TODO: FIX THIS... Skipping postgres backend test likely due to case sensitivity and incorrect XML property aliasing
@@ -2732,6 +3114,19 @@ Weird ID WSL bug query
     ...    ${SELECT_SUMOLOGIC_COLLECTORS_IDS_EXPECTED}
     ...    ${CURDIR}/tmp/Weird-ID-WSL-bug-query.tmp
 
+Custom Auth Linear Should Send Appropriate Credentials
+    # This will only succeed if correct headers are sent.
+    Should Horrid Query StackQL Inline Equal
+    ...    ${STACKQL_EXE}
+    ...    ${OKTA_SECRET_STR}
+    ...    ${GITHUB_SECRET_STR}
+    ...    ${K8S_SECRET_STR}
+    ...    ${REGISTRY_NO_VERIFY_CFG_STR}    
+    ...    ${AUTH_CFG_STR}
+    ...    ${SQL_BACKEND_CFG_STR_CANONICAL}
+    ...    select id from stackql_auth_testing.collectors.collectors order by id desc;
+    ...    ${SELECT_SUMOLOGIC_COLLECTORS_IDS_EXPECTED}
+    ...    ${CURDIR}/tmp/Custom-Auth-Linear-Should-Send-Appropriate-Credentials.tmp
 
 HTTP Log enabled regression test
     Should Horrid HTTP Log Enabled Query StackQL Inline Equal

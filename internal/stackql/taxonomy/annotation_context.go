@@ -1,7 +1,7 @@
 package taxonomy
 
 import (
-	"github.com/stackql/go-openapistackql/openapistackql"
+	"github.com/stackql/any-sdk/anysdk"
 	"github.com/stackql/stackql/internal/stackql/handler"
 	"github.com/stackql/stackql/internal/stackql/internal_data_transfer/internaldto"
 	"github.com/stackql/stackql/internal/stackql/logging"
@@ -19,22 +19,23 @@ type AnnotationCtx interface {
 	GetSubquery() (internaldto.SubqueryDTO, bool)
 	GetInputTableName() (string, error)
 	GetParameters() map[string]interface{}
-	GetSchema() openapistackql.Schema
+	GetSchema() anysdk.Schema
 	GetTableMeta() tablemetadata.ExtendedTableMetadata
 	Prepare(handlerCtx handler.HandlerContext, inStream streaming.MapStream) error
 	SetDynamic()
+	Clone() AnnotationCtx
 }
 
 type standardAnnotationCtx struct {
 	isDynamic  bool
-	schema     openapistackql.Schema
+	schema     anysdk.Schema
 	hIDs       internaldto.HeirarchyIdentifiers
 	tableMeta  tablemetadata.ExtendedTableMetadata
 	parameters map[string]interface{}
 }
 
 func NewStaticStandardAnnotationCtx(
-	schema openapistackql.Schema,
+	schema anysdk.Schema,
 	hIds internaldto.HeirarchyIdentifiers,
 	tableMeta tablemetadata.ExtendedTableMetadata,
 	parameters map[string]interface{},
@@ -45,6 +46,20 @@ func NewStaticStandardAnnotationCtx(
 		hIDs:       hIds,
 		tableMeta:  tableMeta,
 		parameters: parameters,
+	}
+}
+
+func (ac *standardAnnotationCtx) Clone() AnnotationCtx {
+	clonedParams := make(map[string]interface{})
+	for k, v := range ac.parameters {
+		clonedParams[k] = v
+	}
+	return &standardAnnotationCtx{
+		isDynamic:  ac.isDynamic,
+		schema:     ac.schema,
+		hIDs:       ac.hIDs,
+		tableMeta:  ac.tableMeta,
+		parameters: clonedParams,
 	}
 }
 
@@ -101,8 +116,8 @@ func (ac *standardAnnotationCtx) Prepare(
 			return provErr
 		}
 		ac.tableMeta.WithGetHTTPArmoury(
-			func() (openapistackql.HTTPArmoury, error) {
-				httpPreparator := openapistackql.NewHTTPPreparator(
+			func() (anysdk.HTTPArmoury, error) {
+				httpPreparator := anysdk.NewHTTPPreparator(
 					prov,
 					svc,
 					opStore,
@@ -117,10 +132,11 @@ func (ac *standardAnnotationCtx) Prepare(
 		)
 		return nil
 	}
+	params := ac.GetParameters()
 	ac.tableMeta.WithGetHTTPArmoury(
-		func() (openapistackql.HTTPArmoury, error) {
+		func() (anysdk.HTTPArmoury, error) {
 			// need to dynamically generate stream, otherwise repeated calls result in empty body
-			parametersCleaned, cleanErr := util.TransformSQLRawParameters(ac.GetParameters())
+			parametersCleaned, cleanErr := util.TransformSQLRawParameters(params)
 			if cleanErr != nil {
 				return nil, cleanErr
 			}
@@ -133,7 +149,7 @@ func (ac *standardAnnotationCtx) Prepare(
 			if provErr != nil {
 				return nil, provErr
 			}
-			httpPreparator := openapistackql.NewHTTPPreparator(
+			httpPreparator := anysdk.NewHTTPPreparator(
 				prov,
 				svc,
 				opStore,
@@ -160,7 +176,7 @@ func (ac *standardAnnotationCtx) GetParameters() map[string]interface{} {
 	return ac.parameters
 }
 
-func (ac *standardAnnotationCtx) GetSchema() openapistackql.Schema {
+func (ac *standardAnnotationCtx) GetSchema() anysdk.Schema {
 	return ac.schema
 }
 

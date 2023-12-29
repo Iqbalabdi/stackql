@@ -242,13 +242,45 @@ func (pr *standardParameterRouter) GetOnConditionDataFlows() (dataflow.Collectio
 			return nil, err
 		}
 	}
+	var tableEquivalencyID int64
 	for k, v := range pr.tableToAnnotationCtx {
+		tableEquivalencyID++ // start at 1 for > 0 logic
+		for k1, param := range v.GetParameters() {
+			switch param := param.(type) { //nolint:gocritic // TODO: review
+			case parserutil.ParameterMetadata:
+				rhs := param.GetVal()
+				switch rhs := rhs.(type) { //nolint:gocritic // TODO: review
+				case sqlparser.ValTuple:
+					for _, valTmp := range rhs {
+						val := valTmp
+						clonedParams := make(map[string]interface{})
+						for k2, v2 := range v.GetParameters() {
+							if k2 != k1 {
+								val2 := v2
+								clonedParams[k2] = val2
+							}
+						}
+
+						clonedParams[k1] = val
+						clonedAnnotationCtx := taxonomy.NewStaticStandardAnnotationCtx(
+							v.GetSchema(),
+							v.GetHIDs(),
+							v.GetTableMeta().Clone(),
+							clonedParams,
+						)
+						sourceVertexIteration := dataflow.NewStandardDataFlowVertex(clonedAnnotationCtx, k, rv.GetNextID())
+						sourceVertexIteration.SetEquivalencyGroup(tableEquivalencyID)
+						rv.AddVertex(sourceVertexIteration)
+					}
+					return rv, nil
+				}
+			}
+		}
 		rv.AddVertex(dataflow.NewStandardDataFlowVertex(v, k, rv.GetNextID()))
 	}
 	return rv, nil
 }
 
-//nolint:gocognit // inherently complex functionality
 func (pr *standardParameterRouter) getAvailableParameters(
 	tb sqlparser.TableExpr,
 ) parserutil.TableParameterCoupling {
